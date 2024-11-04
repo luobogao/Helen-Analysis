@@ -3,150 +3,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D3 Scatter Plot with Dynamic Zooming</title>
+    <title>D3 Grid Visualization with Clusters</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        /* Ensure the SVG fills the entire browser window */
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
+        /* Container holding SVG and Sidebar */
+        #container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
         }
 
+        /* SVG Styling */
         svg {
-            width: 100vw;
-            height: 100vh;
-            display: block;
-            background-color: #f9f9f9;
+            flex-grow: 1;
+            background-color: #dddddd; /* Lighter grey background */
             cursor: move;
         }
 
-        /* Style for the tooltip */
-        .tooltip {
-            position: absolute;
-            text-align: center;
-            padding: 6px;
-            font: 12px sans-serif;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            border: 0px;
-            border-radius: 4px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
+        /* Sidebar Styling */
+        #sidebar {
+            width: 300px; /* Fixed width for the sidebar */
+            background-color: #f0f0f0; /* Slightly different grey for contrast */
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            font-family: sans-serif;
+            font-size: 14px;
+            border-left: 1px solid #cccccc;
+        }
+
+        /* Optional: Style for the sidebar content */
+        #sidebar h2 {
+            margin-top: 0;
+        }
+
+        /* Transition for smooth opacity changes */
+        rect {
+            transition: fill-opacity 0.3s;
         }
     </style>
 </head>
 <body>
-    <!-- Tooltip Div -->
-    <div class="tooltip" id="tooltip"></div>
+    <!-- Container Div -->
+    <div id="container">
+        <!-- SVG Container -->
+        <svg></svg>
 
-    <!-- SVG Container -->
-    <svg></svg>
+        <!-- Sidebar Div -->
+        <div id="sidebar">
+            <h2>Grid Cell Information</h2>
+            <p>Hover over a cell to see details here.</p>
+        </div>
+    </div>
 
     <script>
-        // Define the dimensions for the SVG (will be 100% via CSS)
-        const svg = d3.select("svg");
+        // Main function to initialize the visualization and handle data download
+        function initVisualization() {
+            const svg = d3.select("svg");
+            const sidebar = d3.select("#sidebar");
 
-        // Create a tooltip
-        const tooltip = d3.select("#tooltip");
+            // Define the color scale for clusters
+            const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
 
-        // Define the color scale for individual points based on their cluster
-        const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+            // Define grid dimensions
+            const numCols = 200;
+            const numRows = 200;
 
-        // Define a base radius for points
-        const baseRadius = 3;
+            // Load data and render the grid
+            d3.csv("https://raw.githubusercontent.com/luobogao/Helen-Analysis/refs/heads/master/ratios_xy.csv")
+                .then(data => renderGrid(data))
+                .catch(error => console.error('Error loading the data:', error));
 
-        // Load the CSV data from GitHub
-        d3.csv("https://raw.githubusercontent.com/luobogao/Helen-Analysis/refs/heads/master/ratios_xy.csv").then(data => {
-            // Parse the data
-            data.forEach(d => {
-                d.X = +d.X;
-                d.Y = +d.Y;
-                d.cluster = +d.cluster;
-            });
-
-            // Define the scales based on data extent
-            const xExtent = d3.extent(data, d => d.X);
-            const yExtent = d3.extent(data, d => d.Y);
-
-            const xScale = d3.scaleLinear()
-                .domain(xExtent)
-                .range([-400, 400]); // Initial range, will adjust with zoom
-
-            const yScale = d3.scaleLinear()
-                .domain(yExtent)
-                .range([-300, 300]); // Initial range, will adjust with zoom
-
-            // Create a main group to hold all elements and apply transformations
-            const zoomGroup = svg.append("g");
-
-            // Create a mainGroup translated to the center
-            const mainGroup = zoomGroup.append("g")
-                .attr("transform", `translate(${svg.node().clientWidth / 2},${svg.node().clientHeight / 2})`);
-
-            // Create circles for individual points
-            const circles = mainGroup.selectAll("circle")
-                .data(data)
-                .enter().append("circle")
-                .attr("cx", d => xScale(d.X))
-                .attr("cy", d => yScale(d.Y))
-                .attr("r", baseRadius)
-                .attr("fill", d => colorScale(d.cluster))
-                .attr("stroke", "#fff")
-                .attr("stroke-width", 1)
-                .attr("pointer-events", "all")
-                .on("mouseover", (event, d) => {
-                    tooltip.transition()
-                        .duration(200)
-                        .style("opacity", 0.9);
-                    tooltip.html(`Cluster: ${d.cluster}<br>X: ${d.X}<br>Y: ${d.Y}`)
-                        .style("left", (event.pageX + 10) + "px")
-                        .style("top", (event.pageY - 28) + "px");
-                })
-                .on("mouseout", () => {
-                    tooltip.transition()
-                        .duration(500)
-                        .style("opacity", 0);
+            // Function to render the grid
+            function renderGrid(data) {
+                // Parse the data
+                data.forEach(d => {
+                    d.X = +d.X;
+                    d.Y = +d.Y;
+                    d.cluster = +d.cluster;
                 });
 
-            /**
-             * Function to handle zoom events
-             * @param {Object} event - D3 zoom event
-             */
-            function zoomed(event) {
-                const {transform} = event;
+                const containerWidth = svg.node().clientWidth;
+                const containerHeight = svg.node().clientHeight;
 
-                // Apply the zoom transformation to the zoomGroup
-                zoomGroup.attr("transform", transform);
+                const originalXExtent = d3.extent(data, d => d.X);
+                const originalYExtent = d3.extent(data, d => d.Y);
 
-                // Adjust point sizes based on zoom scale
-                // Points grow larger as you zoom in and shrink as you zoom out
-                circles.attr("r", baseRadius * transform.k);
+                const xRange = originalXExtent[1] - originalXExtent[0];
+                const yRange = originalYExtent[1] - originalYExtent[0];
+                const buffer = 0.1;
+
+                const bufferedXExtent = [
+                    originalXExtent[0] - buffer * xRange,
+                    originalXExtent[1] + buffer * xRange
+                ];
+                const bufferedYExtent = [
+                    originalYExtent[0] - buffer * yRange,
+                    originalYExtent[1] + buffer * yRange
+                ];
+
+                const extendedXRange = bufferedXExtent[1] - bufferedXExtent[0];
+                const extendedYRange = bufferedYExtent[1] - bufferedYExtent[0];
+
+                const scaleX = containerWidth / extendedXRange;
+                const scaleY = containerHeight / extendedYRange;
+                const scale = Math.min(scaleX, scaleY);
+
+                const scaledWidth = extendedXRange * scale;
+                const scaledHeight = extendedYRange * scale;
+                const paddingX = (containerWidth - scaledWidth) / 2;
+                const paddingY = (containerHeight - scaledHeight) / 2;
+
+                const xScale = d3.scaleLinear()
+                    .domain(bufferedXExtent)
+                    .range([paddingX, paddingX + scaledWidth]);
+
+                const yScale = d3.scaleLinear()
+                    .domain(bufferedYExtent)
+                    .range([paddingY + scaledHeight, paddingY]);
+
+                const cellWidth = extendedXRange / numCols;
+                const cellHeight = extendedYRange / numRows;
+                const cellSize = Math.min(
+                    xScale(bufferedXExtent[0] + cellWidth) - xScale(bufferedXExtent[0]),
+                    yScale(bufferedYExtent[0]) - yScale(bufferedYExtent[0] + cellHeight)
+                );
+
+                const grid = [];
+                for (let j = 0; j < numRows; j++) {
+                    for (let i = 0; i < numCols; i++) {
+                        grid.push({
+                            x0: bufferedXExtent[0] + i * cellWidth,
+                            x1: bufferedXExtent[0] + (i + 1) * cellWidth,
+                            y0: bufferedYExtent[0] + j * cellHeight,
+                            y1: bufferedYExtent[0] + (j + 1) * cellHeight,
+                            clusters: [],
+                            majorityCluster: null
+                        });
+                    }
+                }
+
+                data.forEach(d => {
+                    const i = Math.floor((d.X - bufferedXExtent[0]) / cellWidth);
+                    const j = Math.floor((d.Y - bufferedYExtent[0]) / cellHeight);
+                    const clampedI = Math.min(Math.max(i, 0), numCols - 1);
+                    const clampedJ = Math.min(Math.max(j, 0), numRows - 1);
+                    grid[clampedJ * numCols + clampedI].clusters.push(d.cluster);
+                });
+
+                grid.forEach(cell => {
+                    if (cell.clusters.length > 0) {
+                        const clusterCounts = d3.rollup(cell.clusters, v => v.length, d => d);
+                        cell.majorityCluster = Array.from(clusterCounts.entries()).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+                    }
+                });
+
+                const flattenedGrid = grid.filter(d => d.majorityCluster !== null);
+
+                const counts = flattenedGrid.map(d => d.clusters.length);
+                const minCount = 1
+                const maxCount = 10
+
+                const opacityScale = d3.scaleLinear()
+                    .domain([minCount, maxCount])
+                    .range([0.2, 1]);
+
+                const zoomGroup = svg.append("g");
+
+                const rectangles = zoomGroup.selectAll("rect")
+                    .data(flattenedGrid)
+                    .enter().append("rect")
+                    .attr("x", d => xScale(d.x0))
+                    .attr("y", d => yScale(d.y1))
+                    .attr("width", cellSize + 1)
+                    .attr("height", cellSize + 1)
+                    .attr("fill", d => colorScale(d.majorityCluster))
+                    .attr("fill-opacity", d => opacityScale(d.clusters.length))
+                    .on("mouseover", (event, d) => {
+                        rectangles
+                            .transition()
+                            .duration(200)
+                            .attr("fill-opacity", cellData => 
+                                cellData === d ? opacityScale(cellData.clusters.length) : 0.05
+                            );
+
+                        sidebar.html(`
+                            <h2>Grid Cell Information</h2>
+                            <p><strong>Majority Cluster:</strong> ${d.majorityCluster}</p>
+                            <p><strong>Number of Points:</strong> ${d.clusters.length}</p>
+                            <p><strong>Cell Coordinates:</strong> (${d.x0.toFixed(2)}, ${d.y0.toFixed(2)}) to (${d.x1.toFixed(2)}, ${d.y1.toFixed(2)})</p>
+                        `);
+                    })
+                    .on("mouseout", () => {
+                        rectangles
+                            .transition()
+                            .duration(200)
+                            .attr("fill-opacity", d => opacityScale(d.clusters.length));
+
+                        sidebar.html(`
+                            <h2>Grid Cell Information</h2>
+                            <p>Hover over a cell to see details here.</p>
+                        `);
+                    });
+
+                const zoomBehavior = d3.zoom()
+                    .scaleExtent([0.5, 20])
+                    .translateExtent([[0, 0], [containerWidth, containerHeight]])
+                    .on("zoom", event => {
+                        zoomGroup.attr("transform", event.transform);
+                    });
+
+                svg.call(zoomBehavior)
+                    .call(zoomBehavior.transform, d3.zoomIdentity);
             }
 
-            // Define the zoom behavior
-            const zoomBehavior = d3.zoom()
-                .scaleExtent([0.5, 20]) // Define zoom scale limits
-                .translateExtent([[-1000, -1000], [1000, 1000]]) // Limit panning
-                .on("zoom", zoomed);
+            // Handle window resize
+            function handleResize() {
+                svg.selectAll("g").remove();
+                initVisualization();
+            }
 
-            // Apply the zoom behavior to the SVG container
-            svg.call(zoomBehavior)
-                .call(zoomBehavior.transform, d3.zoomIdentity); // Initialize zoom
-
-            // Optional: Make the SVG responsive to window resize
+            let resizeTimeout;
             window.addEventListener("resize", () => {
-                const width = window.innerWidth;
-                const height = window.innerHeight;
-                svg.attr("width", width).attr("height", height);
-                mainGroup.attr("transform", `translate(${width / 2},${height / 2})`);
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(handleResize, 200);
             });
-        }).catch(error => {
-            console.error('Error loading the data:', error);
-        });
+        }
+
+        // Initialize the visualization on page load
+        initVisualization();
     </script>
 </body>
 </html>
