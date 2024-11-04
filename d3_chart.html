@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3 Scatter Plot</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <svg width="800" height="600"></svg>
+    <script>
+        // Define the dimensions and margins for the SVG
+        const width = 800;
+        const height = 600;
+        const margin = { top: 20, right: 30, bottom: 30, left: 40 };
+        
+        // Load the CSV data
+        d3.csv("ratios_xy.csv").then(data => {
+            // Parse the data
+            data.forEach(d => {
+                d.X = +d.X;
+                d.Y = +d.Y;
+                d.cluster = +d.cluster;
+            });
+
+            // Define the scales
+            const xScale = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.X))
+                .range([margin.left, width - margin.right]);
+
+            const yScale = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.Y))
+                .range([height - margin.bottom, margin.top]);
+
+            // Define a color scale for clusters
+            const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+            // Create the SVG container
+            const svg = d3.select("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Create circles for each data point
+            svg.selectAll("circle")
+                .data(data)
+                .enter().append("circle")
+                .attr("cx", d => xScale(d.X))
+                .attr("cy", d => yScale(d.Y))
+                .attr("r", 5)
+                .attr("fill", d => colorScale(d.cluster));
+
+            // Add axes
+            svg.append("g")
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+                .call(d3.axisBottom(xScale));
+
+            svg.append("g")
+                .attr("transform", `translate(${margin.left},0)`)
+                .call(d3.axisLeft(yScale));
+        });
+    </script>
+</body>
+</html>
