@@ -3,19 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D3 Scatter Plot</title>
+    <title>D3 Scatter Plot with Dynamic Zooming</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Ensure the SVG fills the entire browser window */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        svg {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            background-color: #f9f9f9;
+            cursor: move;
+        }
+
+        /* Style for the tooltip */
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 6px;
+            font: 12px sans-serif;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: 0px;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
 </head>
 <body>
-    <svg width="800" height="600"></svg>
+    <!-- Tooltip Div -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- SVG Container -->
+    <svg></svg>
+
     <script>
-        // Define the dimensions and margins for the SVG
-        const width = 800;
-        const height = 600;
-        const margin = { top: 20, right: 30, bottom: 30, left: 40 };
-        
-        // Load the CSV data
-        d3.csv("ratios_xy.csv").then(data => {
+        // Define the dimensions for the SVG (will be 100% via CSS)
+        const svg = d3.select("svg");
+
+        // Create a tooltip
+        const tooltip = d3.select("#tooltip");
+
+        // Define the color scale for individual points based on their cluster
+        const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+        // Define a base radius for points
+        const baseRadius = 3;
+
+        // Load the CSV data from GitHub
+        d3.csv("https://raw.githubusercontent.com/luobogao/Helen-Analysis/refs/heads/master/ratios_xy.csv").then(data => {
             // Parse the data
             data.forEach(d => {
                 d.X = +d.X;
@@ -23,40 +68,84 @@
                 d.cluster = +d.cluster;
             });
 
-            // Define the scales
+            // Define the scales based on data extent
+            const xExtent = d3.extent(data, d => d.X);
+            const yExtent = d3.extent(data, d => d.Y);
+
             const xScale = d3.scaleLinear()
-                .domain(d3.extent(data, d => d.X))
-                .range([margin.left, width - margin.right]);
+                .domain(xExtent)
+                .range([-400, 400]); // Initial range, will adjust with zoom
 
             const yScale = d3.scaleLinear()
-                .domain(d3.extent(data, d => d.Y))
-                .range([height - margin.bottom, margin.top]);
+                .domain(yExtent)
+                .range([-300, 300]); // Initial range, will adjust with zoom
 
-            // Define a color scale for clusters
-            const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+            // Create a main group to hold all elements and apply transformations
+            const zoomGroup = svg.append("g");
 
-            // Create the SVG container
-            const svg = d3.select("svg")
-                .attr("width", width)
-                .attr("height", height);
+            // Create a mainGroup translated to the center
+            const mainGroup = zoomGroup.append("g")
+                .attr("transform", `translate(${svg.node().clientWidth / 2},${svg.node().clientHeight / 2})`);
 
-            // Create circles for each data point
-            svg.selectAll("circle")
+            // Create circles for individual points
+            const circles = mainGroup.selectAll("circle")
                 .data(data)
                 .enter().append("circle")
                 .attr("cx", d => xScale(d.X))
                 .attr("cy", d => yScale(d.Y))
-                .attr("r", 5)
-                .attr("fill", d => colorScale(d.cluster));
+                .attr("r", baseRadius)
+                .attr("fill", d => colorScale(d.cluster))
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 1)
+                .attr("pointer-events", "all")
+                .on("mouseover", (event, d) => {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 0.9);
+                    tooltip.html(`Cluster: ${d.cluster}<br>X: ${d.X}<br>Y: ${d.Y}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", () => {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
 
-            // Add axes
-            svg.append("g")
-                .attr("transform", `translate(0,${height - margin.bottom})`)
-                .call(d3.axisBottom(xScale));
+            /**
+             * Function to handle zoom events
+             * @param {Object} event - D3 zoom event
+             */
+            function zoomed(event) {
+                const {transform} = event;
 
-            svg.append("g")
-                .attr("transform", `translate(${margin.left},0)`)
-                .call(d3.axisLeft(yScale));
+                // Apply the zoom transformation to the zoomGroup
+                zoomGroup.attr("transform", transform);
+
+                // Adjust point sizes based on zoom scale
+                // Points grow larger as you zoom in and shrink as you zoom out
+                circles.attr("r", baseRadius * transform.k);
+            }
+
+            // Define the zoom behavior
+            const zoomBehavior = d3.zoom()
+                .scaleExtent([0.5, 20]) // Define zoom scale limits
+                .translateExtent([[-1000, -1000], [1000, 1000]]) // Limit panning
+                .on("zoom", zoomed);
+
+            // Apply the zoom behavior to the SVG container
+            svg.call(zoomBehavior)
+                .call(zoomBehavior.transform, d3.zoomIdentity); // Initialize zoom
+
+            // Optional: Make the SVG responsive to window resize
+            window.addEventListener("resize", () => {
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                svg.attr("width", width).attr("height", height);
+                mainGroup.attr("transform", `translate(${width / 2},${height / 2})`);
+            });
+        }).catch(error => {
+            console.error('Error loading the data:', error);
         });
     </script>
 </body>
