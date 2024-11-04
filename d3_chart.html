@@ -13,14 +13,14 @@
             height: 100vh;
             overflow: hidden;
         }
-
+        
         /* SVG Styling */
         svg {
             flex-grow: 1;
             background-color: #dddddd; /* Lighter grey background */
             cursor: move;
         }
-
+        
         /* Sidebar Styling */
         #sidebar {
             width: 300px; /* Fixed width for the sidebar */
@@ -32,12 +32,12 @@
             font-size: 14px;
             border-left: 1px solid #cccccc;
         }
-
+        
         /* Optional: Style for the sidebar content */
         #sidebar h2 {
             margin-top: 0;
         }
-
+        
         /* Transition for smooth opacity changes */
         rect {
             transition: fill-opacity 0.3s;
@@ -49,32 +49,96 @@
     <div id="container">
         <!-- SVG Container -->
         <svg></svg>
-
+        
         <!-- Sidebar Div -->
         <div id="sidebar">
             <h2>Grid Cell Information</h2>
             <p>Hover over a cell to see details here.</p>
         </div>
     </div>
-
+    
     <script>
+        const clusters = [
+        {
+            "cluster": 0,
+            "keyword": "Intentions",
+            "icon": "✨",
+            "summary": "Starting sessions with intention setting and exploring initial states with soft visual and auditory phenomena."
+        },
+        {
+            "cluster": 1,
+            "keyword": "Insights",
+            "icon": "🧘",
+            "summary": "Exploring meditative insights with frequent bodily sensations, spontaneous piti, and shifting mental states."
+        },
+        {
+            "cluster": 2,
+            "keyword": "Fear",
+            "icon": "😨",
+            "summary": "Encounters with sudden fear, visual distortions, and exploring inner sounds and body sensations in a 3D space."
+        },
+        {
+            "cluster": 3,
+            "keyword": "Reflection",
+            "icon": "🧩",
+            "summary": "Reflecting on meditation techniques, noticing phenomena, and experiencing visual patterning and spontaneous thoughts."
+        },
+        {
+            "cluster": 4,
+            "keyword": "Drifting",
+            "icon": "🌊",
+            "summary": "Experiencing drifting and warping visual fields, with sensations of warmth and body tingles in a calm state."
+        },
+        {
+            "cluster": 5,
+            "keyword": "Observing",
+            "icon": "👁️",
+            "summary": "Observing visual fields with intentional stillness, noticing drifting objects and sound movement."
+        },
+        {
+            "cluster": 6,
+            "keyword": "Expansion",
+            "icon": "🌅",
+            "summary": "Expanding awareness to achieve broader mental states, with physical sensations and subtle visual glitches."
+        },
+        {
+            "cluster": 7,
+            "keyword": "Anchoring",
+            "icon": "⚓",
+            "summary": "Anchoring in senses, feeling mild bodily vibrations, and exploring visual fields in a calm, sleepy state."
+        },
+        {
+            "cluster": 8,
+            "keyword": "Pulsing",
+            "icon": "🌌",
+            "summary": "Synchronizing visuals, sounds, and body sensations, experiencing pulsing in harmony and blurring boundaries."
+        },
+        {
+            "cluster": 9,
+            "keyword": "Focus",
+            "icon": "🎯",
+            "summary": "Focusing on specific visual and sensory elements, exploring clarity and spontaneous bodily relaxation."
+        }
+        ]
+        
+        
         // Main function to initialize the visualization and handle data download
         function initVisualization() {
             const svg = d3.select("svg");
             const sidebar = d3.select("#sidebar");
-
+            
             // Define the color scale for clusters
             const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
-
+            
             // Define grid dimensions
-            const numCols = 200;
-            const numRows = 200;
-
+            const numCols = 100;
+            const numRows = 100;
+            
             // Load data and render the grid
             d3.csv("https://raw.githubusercontent.com/luobogao/Helen-Analysis/refs/heads/master/ratios_xy.csv")
-                .then(data => renderGrid(data))
-                .catch(error => console.error('Error loading the data:', error));
-
+            .then(data => renderGrid(data))
+            .catch(error => console.error('Error loading the data:', error));
+            
             // Function to render the grid
             function renderGrid(data) {
                 // Parse the data
@@ -83,53 +147,53 @@
                     d.Y = +d.Y;
                     d.cluster = +d.cluster;
                 });
-
+                
                 const containerWidth = svg.node().clientWidth;
                 const containerHeight = svg.node().clientHeight;
-
+                
                 const originalXExtent = d3.extent(data, d => d.X);
                 const originalYExtent = d3.extent(data, d => d.Y);
-
+                
                 const xRange = originalXExtent[1] - originalXExtent[0];
                 const yRange = originalYExtent[1] - originalYExtent[0];
                 const buffer = 0.1;
-
+                
                 const bufferedXExtent = [
-                    originalXExtent[0] - buffer * xRange,
-                    originalXExtent[1] + buffer * xRange
+                originalXExtent[0] - buffer * xRange,
+                originalXExtent[1] + buffer * xRange
                 ];
                 const bufferedYExtent = [
-                    originalYExtent[0] - buffer * yRange,
-                    originalYExtent[1] + buffer * yRange
+                originalYExtent[0] - buffer * yRange,
+                originalYExtent[1] + buffer * yRange
                 ];
-
+                
                 const extendedXRange = bufferedXExtent[1] - bufferedXExtent[0];
                 const extendedYRange = bufferedYExtent[1] - bufferedYExtent[0];
-
+                
                 const scaleX = containerWidth / extendedXRange;
                 const scaleY = containerHeight / extendedYRange;
                 const scale = Math.min(scaleX, scaleY);
-
+                
                 const scaledWidth = extendedXRange * scale;
                 const scaledHeight = extendedYRange * scale;
                 const paddingX = (containerWidth - scaledWidth) / 2;
                 const paddingY = (containerHeight - scaledHeight) / 2;
-
+                
                 const xScale = d3.scaleLinear()
-                    .domain(bufferedXExtent)
-                    .range([paddingX, paddingX + scaledWidth]);
-
+                .domain(bufferedXExtent)
+                .range([paddingX, paddingX + scaledWidth]);
+                
                 const yScale = d3.scaleLinear()
-                    .domain(bufferedYExtent)
-                    .range([paddingY + scaledHeight, paddingY]);
-
+                .domain(bufferedYExtent)
+                .range([paddingY + scaledHeight, paddingY]);
+                
                 const cellWidth = extendedXRange / numCols;
                 const cellHeight = extendedYRange / numRows;
                 const cellSize = Math.min(
-                    xScale(bufferedXExtent[0] + cellWidth) - xScale(bufferedXExtent[0]),
-                    yScale(bufferedYExtent[0]) - yScale(bufferedYExtent[0] + cellHeight)
+                xScale(bufferedXExtent[0] + cellWidth) - xScale(bufferedXExtent[0]),
+                yScale(bufferedYExtent[0]) - yScale(bufferedYExtent[0] + cellHeight)
                 );
-
+                
                 const grid = [];
                 for (let j = 0; j < numRows; j++) {
                     for (let i = 0; i < numCols; i++) {
@@ -143,7 +207,7 @@
                         });
                     }
                 }
-
+                
                 data.forEach(d => {
                     const i = Math.floor((d.X - bufferedXExtent[0]) / cellWidth);
                     const j = Math.floor((d.Y - bufferedYExtent[0]) / cellHeight);
@@ -151,87 +215,88 @@
                     const clampedJ = Math.min(Math.max(j, 0), numRows - 1);
                     grid[clampedJ * numCols + clampedI].clusters.push(d.cluster);
                 });
-
+                
                 grid.forEach(cell => {
                     if (cell.clusters.length > 0) {
                         const clusterCounts = d3.rollup(cell.clusters, v => v.length, d => d);
                         cell.majorityCluster = Array.from(clusterCounts.entries()).reduce((a, b) => a[1] > b[1] ? a : b)[0];
                     }
                 });
-
+                
                 const flattenedGrid = grid.filter(d => d.majorityCluster !== null);
-
+                
                 const counts = flattenedGrid.map(d => d.clusters.length);
                 const minCount = 1
-                const maxCount = 10
-
+                const maxCount = 30
+                
                 const opacityScale = d3.scaleLinear()
-                    .domain([minCount, maxCount])
-                    .range([0.2, 1]);
-
+                .domain([minCount, maxCount])
+                .range([0.2, 1]);
+                
                 const zoomGroup = svg.append("g");
-
+                
                 const rectangles = zoomGroup.selectAll("rect")
-                    .data(flattenedGrid)
-                    .enter().append("rect")
-                    .attr("x", d => xScale(d.x0))
-                    .attr("y", d => yScale(d.y1))
-                    .attr("width", cellSize + 1)
-                    .attr("height", cellSize + 1)
-                    .attr("fill", d => colorScale(d.majorityCluster))
-                    .attr("fill-opacity", d => opacityScale(d.clusters.length))
-                    .on("mouseover", (event, d) => {
-                        rectangles
-                            .transition()
-                            .duration(200)
-                            .attr("fill-opacity", cellData => 
-                                cellData === d ? opacityScale(cellData.clusters.length) : 0.05
-                            );
+                .data(flattenedGrid)
+                .enter().append("rect")
+                .attr("x", d => xScale(d.x0))
+                .attr("y", d => yScale(d.y1))
+                .attr("width", cellSize + 1)
+                .attr("height", cellSize + 1)
+                .attr("fill", d => colorScale(d.majorityCluster))
+                .attr("fill-opacity", d => opacityScale(d.clusters.length))
+                .on("mouseover", (event, d) => {
+                    const hoveredCluster = d.majorityCluster;
 
-                        sidebar.html(`
-                            <h2>Grid Cell Information</h2>
-                            <p><strong>Majority Cluster:</strong> ${d.majorityCluster}</p>
-                            <p><strong>Number of Points:</strong> ${d.clusters.length}</p>
-                            <p><strong>Cell Coordinates:</strong> (${d.x0.toFixed(2)}, ${d.y0.toFixed(2)}) to (${d.x1.toFixed(2)}, ${d.y1.toFixed(2)})</p>
-                        `);
-                    })
-                    .on("mouseout", () => {
-                        rectangles
-                            .transition()
-                            .duration(200)
-                            .attr("fill-opacity", d => opacityScale(d.clusters.length));
-
-                        sidebar.html(`
+                    // get the full text for the cluster from the json
+                    const clusterInfo = clusters.find(cluster => cluster.cluster === hoveredCluster);
+                    
+                    // Update opacity based on cluster similarity
+                    rectangles.attr("fill-opacity", cellData => 
+                    cellData.majorityCluster === hoveredCluster 
+                    ? opacityScale(cellData.clusters.length) 
+                    : 0.1
+                    );
+                    
+                    // Update sidebar with cell information from clusterInfo
+                    sidebar.text(clusterInfo.summary);
+                })
+                .on("mouseout", () => {
+                    // Reset all rectangles' opacity
+                    rectangles.attr("fill-opacity", d => opacityScale(d.clusters.length));
+                    
+                    // Reset sidebar content
+                    sidebar.html(`
                             <h2>Grid Cell Information</h2>
                             <p>Hover over a cell to see details here.</p>
                         `);
-                    });
-
+                });
+                
                 const zoomBehavior = d3.zoom()
-                    .scaleExtent([0.5, 20])
-                    .translateExtent([[0, 0], [containerWidth, containerHeight]])
-                    .on("zoom", event => {
-                        zoomGroup.attr("transform", event.transform);
-                    });
-
+                .scaleExtent([0.5, 20])
+                .translateExtent([[0, 0], [containerWidth, containerHeight]])
+                .on("zoom", event => {
+                    zoomGroup.attr("transform", event.transform);
+                });
+                
                 svg.call(zoomBehavior)
-                    .call(zoomBehavior.transform, d3.zoomIdentity);
+                .call(zoomBehavior.transform, d3.zoomIdentity);
             }
-
+            
             // Handle window resize
             function handleResize() {
                 svg.selectAll("g").remove();
                 initVisualization();
             }
-
+            
             let resizeTimeout;
             window.addEventListener("resize", () => {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(handleResize, 200);
             });
+            
+            // Initialize the visualization on page load
+            
         }
-
-        // Initialize the visualization on page load
         initVisualization();
     </script>
 </body>
